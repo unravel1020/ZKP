@@ -25,10 +25,26 @@ class zksnarks():
         pass
     #这里是约束函数
     def Circuit(self, pub, witness):
-        return (Hash(witness["private"]) in id_hash
-                and pub["root"]==GetTreeRoot(Hash(witness["private"]),witness["path"])
-                and pub["vote_hash"]==Hash(witness["private"]+pub["vote"]))
-    #通过约束函数，生成证明密钥和验证密钥
+        # 假设 witness["num1"] 和 witness["num2"] 是要比较的两个加密数（或承诺）
+        # pub["result"] 是期望的比较结果（例如，1 表示第一个数大于第二个数，0 表示相等，-1 表示小于）
+        num1 = witness["num1"]
+        num2 = witness["num2"]
+
+        # 这里我们模拟一个比较过程，实际上你需要使用密码学方法来比较承诺而不泄露数值
+        comparison_result = self.compare_numbers(num1, num2)
+
+        return comparison_result == pub["result"]
+
+    def compare_numbers(self, num1, num2):
+        # 这里只是一个模拟的比较函数，实际上你需要使用密码学方法来比较承诺
+        # 在这个例子中，我们假设num1和num2是已经解密的数值（但在实际中它们应该是承诺）
+        if int(num1) > int(num2):
+            return 1
+        elif int(num1) < int(num2):
+            return -1
+        else:
+            return 0
+            #通过约束函数，生成证明密钥和验证密钥
     def Setup(self, key):
         proof_key = key + id(self.Circuit)
         verify_key = key - id(self.Circuit)
