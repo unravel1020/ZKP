@@ -25,15 +25,22 @@ def GetTreeRoot(id, path):
 
 class zksnarks():
 
-    def __init__(self):
-        pass
+    def __init__(self, compare_value=None):
+        self.compare_value = compare_value
     # 这里是约束函数
 
     def Circuit(self, pub, witness):
-        return (Hash(witness["private"]) in id_hash
-                and pub["root"] == GetTreeRoot(Hash(witness["private"]), witness["path"])
-                and pub["vote_hash"] == Hash(witness["private"]+pub["vote"]))
-    # 通过约束函数，生成证明密钥和验证密钥
+        private_value = int(witness["private"])
+        compare_result = private_value > self.compare_value if self.compare_value is not None else True
+
+        # 确保比较结果为真，才继续其他验证
+        if not compare_result:
+            return False
+
+        return (Hash(witness["private"]) in id_hash and
+                pub["user"] == GetTreeRoot(Hash(witness["private"]), witness["path"]) and
+                pub["user_hash"] == Hash(witness["private"] + pub["vote"]))
+        # 通过约束函数，生成证明密钥和验证密钥
 
     def Setup(self, key):
         proof_key = key + id(self.Circuit)
@@ -44,6 +51,7 @@ class zksnarks():
     def Proof(self, proof_key, pub, witness):
         proof = proof_key+self.Circuit(pub, witness)+int(Hash(str(pub))[:6],16)
         return proof
+    def Calculate(self, proof_key, pub, witness):
 
     # 验证函数
     def Verify(self, verify_key, pub, proof):
@@ -108,23 +116,25 @@ random_key = getrandbits(256)
 mtree = Merkletree(3, id_hash)
 
 # 正确的身份投票Jordan，验证通过
-vote = "Jordan"  # 投票内容
-vote_hash = Hash(private_key[0]+vote)  # 由于发送投票结果可能会被截获，所以和用户的私钥绑定
+user1 = "Jordan"  # 投票内容
+user1_hash = Hash(private_key[0]+vote)  # 由于发送投票结果可能会被截获，所以和用户的私钥绑定
 witness = {"private": private_key[0], "path": mtree.path(1)}
-pub = {"root": mtree.root, "vote": vote, "vote_hash": vote_hash}  # 这一部分就是用户需要发送投票结果，里边没有包含任何个人身份信息
+pub = {"root": mtree.root, "user": vote, "user_hash": vote_hash}  # 这一部分就是用户需要发送投票结果，里边没有包含任何个人身份信息
 
-zk = zksnarks()
-pk, vk = zk.Setup(random_key)  # 生成vk，pk
+user2 = "Jordan"
+user2_hash = Hash("6666"+vote)
+witness = {"private": "6666", "path": mtree.path(1)}
+pub = {"root": mtree.root, "user": vote, "user_hash": vote_hash}
+
+
+
+
+zk = zksnarks(compare_value=4000)  # 假设我们要比较的值是4000
+pk, vk = zk.Setup(random_key)
 proof = zk.Proof(pk, pub, witness)
 ret = zk.Verify(vk, pub, proof)
 print("vote:", pub["vote"], "   result:", ret)
 
-
-# 错误的身份投票Jordan，验证失败
-vote = "Jordan"
-vote_hash = Hash("6666"+vote)
-witness = {"private": "6666", "path": mtree.path(1)}
-pub = {"root": mtree.root, "vote": vote, "vote_hash": vote_hash}
 
 zk = zksnarks()
 pk, vk = zk.Setup(random_key)
