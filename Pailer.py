@@ -40,14 +40,16 @@ def compare(a, b):
 
     # Alice公布最终的大小结果
     if axy > bxy:
-        print("winner: Alice")
+        print("Alice is greater than Bob")
     elif bxy > axy:
-        print("winner: Bob")
+        print("Bob is greater than Alice")
     else:
         print("tie")
 
 
 if __name__ == '__main__':
-    alice_a = 2578466
-    bob_b = 2333333
+    alice_a = input("输入alice的财富")
+    bob_b = input("输入bob的财富")
+    alice_a = int(alice_a)
+    bob_b = int(bob_b)
     compare(alice_a, bob_b)
