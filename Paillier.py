@@ -1,73 +1,70 @@
 import tkinter as tk
-from tkinter import simpledialog
 from tkinter import messagebox
 import random
 import paillier.keygen as keygen
 import paillier.crypto as crypto
 
-# Alice生成自己的公私钥(足够长)
+# 生成RSA公私钥对
 pk, sk = keygen.generate_keys()
 
 
-def compare_wealth():
-    try:
-        a = int(entry_a.get())
-        b = int(entry_b.get())
-        result = compare(a, b)
-        messagebox.showinfo("比较结果", result)
-    except ValueError:
-        messagebox.showerror("错误", "请输入有效的整数")
-    except Exception as e:
-        messagebox.showerror("错误", str(e))
+def encrypt_value(value):
+    """
+    使用Paillier加密算法加密值。
+    """
+    return crypto.encrypt(pk, value)
 
 
-# 比较Alice的财富a和Bob的财富b
-def compare(a, b):
-    # Bob生成两个随机数x和y
-    x = random.getrandbits(100)
-    y = random.getrandbits(128)
-
-    # Alice公布自己公钥pk
-    print("Alice: pk =", pk)
-
-    # Alice计算a的密文并公布
-    e_a = crypto.encrypt(pk, a)
-    print("Alice: E(a) =", e_a)
-
-    # Bob计算b*x+y的密文并公布
+def calculate_secure_addition(encrypted_a, multiplier, random_value):
+    """
+    计算安全的加法：E(a * x + y)，其中 a 是加密的，x 和 y 是随机值。
+    """
     n, _ = pk
-    e_bxy = crypto.encrypt(pk, b * x + y)
-    print("Bob: E(b*x+y) =", e_bxy)
-
-    # Bob计算a*x+y的密文并公布
-    e_axy = crypto.secure_addition(
-        crypto.scalar_multiplication(e_a, x, n),
-        crypto.encrypt(pk, y),
-        n,
-    )
-    print("Bob: E(a*x+y) =", e_axy)
-
-    # Alice根据密文反解出b*x+y
-    bxy = crypto.decrypt(pk, sk, e_bxy)
-
-    # Alice根据密文反解出a*x+y
-    axy = crypto.decrypt(pk, sk, e_axy)
-
-    # Alice公布最终的大小结果
-    if axy > bxy:
-        return "Alice is greater than Bob"
-    elif bxy > axy:
-        return "Bob is greater than Alice"
-    else:
-        return "tie"
+    encrypted_x_a = crypto.scalar_multiplication(encrypted_a, multiplier, n)
+    encrypted_y = crypto.encrypt(pk, random_value)
+    return crypto.secure_addition(encrypted_x_a, encrypted_y, n)
 
 
-if __name__ == '__main__':
-    # 初始化GUI
+def compare_wealth(a, b):
+    """
+    比较Alice的财富a和Bob的财富b。
+    返回比较结果。
+    """
+    try:
+        x = random.getrandbits(100)
+        y = random.getrandbits(128)
+
+        # Alice计算a的密文并公布
+        e_a = encrypt_value(a)
+
+        # Bob计算b*x+y的密文并公布
+        e_bxy = encrypt_value(b * x + y)
+
+        # Bob计算a*x+y的密文并公布
+        e_axy = calculate_secure_addition(e_a, x, y)
+
+        # Alice解密得到b*x+y和a*x+y
+        bxy = crypto.decrypt(pk, sk, e_bxy)
+        axy = crypto.decrypt(pk, sk, e_axy)
+
+        # 比较解密后的结果
+        if axy > bxy:
+            return "Alice is wealthier than Bob"
+        elif bxy > axy:
+            return "Bob is wealthier than Alice"
+        else:
+            return "Alice and Bob have equal wealth"
+    except Exception as e:
+        return f"An error occurred during comparison: {e}"
+
+
+def create_ui():
+    """
+    创建GUI界面，用于输入Alice和Bob的财富并进行比较。
+    """
     root = tk.Tk()
-    root.title("财富比较工具")
+    root.title("Wealth Comparison")
 
-    # 设置窗口大小和位置
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
     window_width = int(screen_width * 0.4)
@@ -76,20 +73,28 @@ if __name__ == '__main__':
     y = (screen_height // 2) - (window_height // 2)
     root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-    # 输入框
-    label_a = tk.Label(root, text="Alice的财富(请输入整数）:")
-    label_a.pack(pady=(20, 0))
+    tk.Label(root, text="Alice's Wealth (Enter an integer):").pack(pady=(20, 0))
     entry_a = tk.Entry(root)
     entry_a.pack(pady=(0, 20))
 
-    label_b = tk.Label(root, text="Bob的财富（请输入整数）:")
-    label_b.pack(pady=(20, 0))
+    tk.Label(root, text="Bob's Wealth (Enter an integer):").pack(pady=(20, 0))
     entry_b = tk.Entry(root)
     entry_b.pack(pady=(0, 40))
 
-    # 按钮
-    compare_button = tk.Button(root, text="比较", command=compare_wealth)
-    compare_button.pack()
+    def on_compare():
+        try:
+            a = int(entry_a.get())
+            b = int(entry_b.get())
+            result = compare_wealth(a, b)
+            messagebox.showinfo("Comparison Result", result)
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid integers")
 
-    # 运行GUI
-    root.mainloop()
+    tk.Button(root, text="Compare", command=on_compare).pack()
+
+    return root
+
+
+if __name__ == '__main__':
+    app = create_ui()
+    app.mainloop()
